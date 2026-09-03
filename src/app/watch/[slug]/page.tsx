@@ -20,18 +20,15 @@ interface WatchPageProps {
 
 export async function generateMetadata({ params }: WatchPageProps): Promise<Metadata> {
   const { slug } = await params;
-  try {
-    const episode = await animeService.getWatchEpisode(slug);
-    const title = `Nonton ${episode.title || episode.animeTitle} Sub Indo - AnimeHub`;
-    return {
-      title,
-      description: `Streaming & nonton ${episode.title} subtitle Indonesia gratis di AnimeHub.`,
-    };
-  } catch {
-    return {
-      title: 'Nonton Anime Episode - AnimeHub',
-    };
-  }
+  const cleanTitle = slug
+    .replace(/^nonton-/, '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const title = `Nonton ${cleanTitle} Sub Indo - AnimeHub`;
+  return {
+    title,
+    description: `Streaming & nonton ${cleanTitle} subtitle Indonesia gratis di AnimeHub.`,
+  };
 }
 
 export default async function WatchPage({ params, searchParams }: WatchPageProps) {

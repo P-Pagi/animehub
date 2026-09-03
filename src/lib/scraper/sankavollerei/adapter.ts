@@ -392,7 +392,7 @@ export class SankaVollereiSource implements AnimeSource {
         const res = await fetchSankaApi<any>(`/server/${entry.serverId}`);
         const url: string = res?.data?.url || res?.url || '';
         if (url) {
-          await cache.set(cacheKey, url, 600); // Cache for 10 minutes
+          await cache.set(cacheKey, url, 86400); // Cache embed URLs for 24 Hours
         }
         return { entry, url };
       })
