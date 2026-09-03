@@ -20,11 +20,8 @@ export async function POST(req: Request) {
     }
   } catch { /* body kosong / bukan JSON → pakai default harga database */ }
 
-  const targetUrl = `${GOPAY_URL}/create-qris`;
-  console.log(`[QRIS] POST → ${targetUrl} | amount: ${amount} | key: ${GOPAY_KEY ? '***set***' : 'MISSING'}`);
-
   try {
-    const res = await fetch(targetUrl, {
+    const res = await fetch(`${GOPAY_URL}/create-qris`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -33,29 +30,19 @@ export async function POST(req: Request) {
       body: JSON.stringify({ amount }),
     });
 
-    const text = await res.text();
-    console.log(`[QRIS] Gateway response → status: ${res.status} | body: ${text}`);
-
     if (!res.ok) {
+      const text = await res.text();
       return NextResponse.json(
-        { success: false, message: `Gateway error (${res.status}): ${text}` },
+        { success: false, message: `Gateway error: ${text}` },
         { status: 502 }
       );
     }
 
-    try {
-      const data = JSON.parse(text);
-      return NextResponse.json(data);
-    } catch {
-      return NextResponse.json(
-        { success: false, message: `Gateway returned invalid JSON: ${text}` },
-        { status: 502 }
-      );
-    }
-  } catch (err: any) {
-    console.error(`[QRIS] Fetch error → ${err?.message}`);
+    const data = await res.json();
+    return NextResponse.json(data);
+  } catch {
     return NextResponse.json(
-      { success: false, message: `Tidak dapat terhubung ke GoPay Gateway (${targetUrl}): ${err?.message}` },
+      { success: false, message: 'Tidak dapat terhubung ke GoPay Gateway. Pastikan gateway sedang berjalan.' },
       { status: 503 }
     );
   }
