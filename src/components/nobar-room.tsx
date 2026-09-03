@@ -128,9 +128,11 @@ export function NobarRoom({ slug, animeTitle, episodeTitle, availableServers = [
     window.dispatchEvent(new CustomEvent('nobar-room-data-updated', { detail: { room: null, messages: [], users: [], code: null } }));
   };
 
-  // Check VIP status
-  const isVipUser = (() => {
-    if (typeof window === 'undefined') return false;
+  const [mounted, setMounted] = useState(false);
+  const [isVipUser, setIsVipUser] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
     const localPremium = localStorage.getItem('animehub_is_premium') === 'true';
     const localUser = localStorage.getItem('animehub_user');
     let userObjPremium = false;
@@ -140,8 +142,8 @@ export function NobarRoom({ slug, animeTitle, episodeTitle, availableServers = [
       }
     } catch { }
     const sessionPremium = (session?.user as any)?.isPremium === true;
-    return localPremium || userObjPremium || sessionPremium;
-  })();
+    setIsVipUser(localPremium || userObjPremium || sessionPremium);
+  }, [session]);
 
   // Auto join room if redirected from Join Nobar Modal with ?nobar=CODE
   useEffect(() => {
@@ -631,8 +633,13 @@ export function NobarRoom({ slug, animeTitle, episodeTitle, availableServers = [
           </div>
         )}
 
-        {/* STATE 0: Locked for Non-VIP */}
-        {!isVipUser ? (
+        {/* STATE 0: Hydration safe placeholder until mounted */}
+        {!mounted ? (
+          <div className="py-2 flex items-center justify-between gap-3 text-xs animate-pulse">
+            <div className="h-4 w-48 rounded bg-neutral-800" />
+            <div className="h-8 w-24 rounded-xl bg-neutral-800" />
+          </div>
+        ) : !isVipUser ? (
           <div className="py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
             <div className="space-y-0.5">
               <p className="font-bold text-white">Fitur Nobar khusus pengguna VIP</p>

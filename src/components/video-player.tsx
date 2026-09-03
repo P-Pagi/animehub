@@ -62,13 +62,14 @@ export function VideoPlayer({
   useEffect(() => {
     const handleNobarStatus = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      if (detail && typeof detail.active === 'boolean') {
-        setDynamicNobar(detail.active);
+      if (detail) {
+        const isActive = !!detail.active;
+        setDynamicNobar(isActive);
         if (typeof detail.isHost === 'boolean') {
           setIsHost(detail.isHost);
         }
-        if (!detail.active) {
-          // Reset active server URL to original embedUrl when leaving room
+        if (!isActive) {
+          // Instantly restore full server list & reset active server URL when room is left/closed
           setActiveUrl(embedUrl);
           setNativeVideoUrl(null);
           setIsHost(false);

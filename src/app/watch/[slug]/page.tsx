@@ -85,7 +85,20 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
     if (err?.status === 404 || err?.code === 'NOT_FOUND') {
       notFound();
     }
-    return <MaintenanceView message="Gagal terhubung ke server untuk memuat episode ini." />;
+    const isRateLimit =
+      err?.status === 429 ||
+      err?.statusCode === 429 ||
+      String(err?.message || '').toLowerCase().includes('rate limit') ||
+      String(err?.message || '').includes('429');
+
+    if (isRateLimit) {
+      return (
+        <MaintenanceView
+          message="Server provider sedang membatasi batas akses (Rate Limit 429). Silakan tunggu 1-2 menit lalu muat ulang halaman ini."
+        />
+      );
+    }
+    return <MaintenanceView message={`Gagal memuat episode: ${err?.message || 'Gagal terhubung ke server.'}`} />;
   }
 
   return (
