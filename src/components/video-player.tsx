@@ -675,7 +675,7 @@ export function VideoPlayer({
           : nonBlogspotServers;
 
         const serverList = displayedServers.length > 0 ? displayedServers : nonBlogspotServers;
-        if (serverList.length <= 1) return null;
+        if (serverList.length === 0) return null;
 
         return (
           <div className="p-3.5 sm:p-4 rounded-2xl bg-surface border border-border/80 shadow-md space-y-2.5">

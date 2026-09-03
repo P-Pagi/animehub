@@ -363,9 +363,32 @@ export class SankaVollereiSource implements AnimeSource {
       });
     }
 
-    // Resolve server IDs to embed URLs in parallel (max 2 to preserve rate limit)
-    // Each serverId is individually cached for 10 minutes to prevent repeated API calls
-    const toResolve = rawServers.slice(0, 2);
+    // Filter servers strictly according to quality rules:
+    // - Above 480p (720p, 1080p, 4k): STRICTLY Wibufile ONLY
+    // - 480p and lower (360p, 480p): Allow non-Wibufile servers if Wibufile is unavailable
+    const filteredRawServers = rawServers.filter((entry) => {
+      const q = entry.quality.toLowerCase();
+      const isAbove480p = q.includes('720') || q.includes('1080') || q.includes('hd') || q.includes('4k');
+      const isWibu = entry.title.toLowerCase().includes('wibu') || entry.href.toLowerCase().includes('wibu');
+
+      if (isAbove480p) {
+        return isWibu; // Strictly Wibufile ONLY for >480p
+      }
+      return true; // Allow Wibufile + fallback servers for <=480p
+    });
+
+    // Prioritize Wibufile servers first
+    filteredRawServers.sort((a, b) => {
+      const aIsWibu = a.title.toLowerCase().includes('wibu') || a.href.toLowerCase().includes('wibu');
+      const bIsWibu = b.title.toLowerCase().includes('wibu') || b.href.toLowerCase().includes('wibu');
+      if (aIsWibu && !bIsWibu) return -1;
+      if (!aIsWibu && bIsWibu) return 1;
+      return 0;
+    });
+
+    // Resolve server IDs to embed URLs in parallel (max 4 servers)
+    // Each serverId is cached for 24 Hours in Redis/Postgres
+    const toResolve = filteredRawServers.slice(0, 4);
     const resolvedResults = await Promise.allSettled(
       toResolve.map(async (entry) => {
         // Check cache first — server embed URLs rarely change
@@ -397,6 +420,15 @@ export class SankaVollereiSource implements AnimeSource {
           });
         }
       }
+    });
+
+    // Ensure Wibufile servers are sorted to the top of availableServers list
+    availableServers.sort((a, b) => {
+      const aIsWibu = a.name.toLowerCase().includes('wibu') || a.url.toLowerCase().includes('wibu');
+      const bIsWibu = b.name.toLowerCase().includes('wibu') || b.url.toLowerCase().includes('wibu');
+      if (aIsWibu && !bIsWibu) return -1;
+      if (!aIsWibu && bIsWibu) return 1;
+      return 0;
     });
 
     // Blogspot fallback disabled as per user requirement
