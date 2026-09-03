@@ -7,7 +7,7 @@ import { Crown, Check, RefreshCw, Clock, AlertCircle, Mail, ArrowLeft, X } from 
 import { AuthModal } from './auth-modal';
 import { TrialButton } from './trial-banner';
 
-const VIP_PRICE = 1;
+
 const POLL_INTERVAL_MS = 5000;
 const QRIS_EXPIRY_MS = 5 * 60 * 1000;
 
@@ -224,7 +224,7 @@ export function PremiumModal() {
       const res = await fetch('/api/payment/create-qris', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: VIP_PRICE }),
+        body: JSON.stringify({ amount: vipPrice }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -275,7 +275,7 @@ export function PremiumModal() {
         >
           <span className="absolute inset-0 rounded-xl ring-2 ring-amber-400/40 animate-pulse group-hover:ring-amber-300/60 transition-all" />
           <Crown className="w-3.5 h-3.5 fill-current shrink-0 group-hover:scale-110 transition-transform" />
-          <span className="hidden 2xl:inline">VIP — Rp {VIP_PRICE.toLocaleString('id-ID')}</span>
+          <span className="hidden 2xl:inline">VIP — Rp {vipPrice.toLocaleString('id-ID')}</span>
           <span className="2xl:hidden">VIP</span>
         </button>
       )}
@@ -451,7 +451,7 @@ export function PremiumModal() {
                 <div className="bg-neutral-950/80 border border-neutral-800/90 rounded-2xl p-4 text-xs space-y-3 shadow-inner">
                   <div className="flex justify-between items-center pb-2.5 border-b border-neutral-800/60">
                     <span className="text-neutral-400 font-medium">Amount</span>
-                    <span className="font-bold text-white text-sm font-mono">Rp {VIP_PRICE.toLocaleString('id-ID')}</span>
+                    <span className="font-bold text-white text-sm font-mono">Rp {vipPrice.toLocaleString('id-ID')}</span>
                   </div>
 
                   <div className="flex justify-between items-center">

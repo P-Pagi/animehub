@@ -147,7 +147,7 @@ export function UserProfileButton() {
     setUser(null);
     setIsPremium(false);
     if (session) {
-      signOut({ callbackUrl: '/' });
+      signOut({ callbackUrl: window.location.origin });
     } else {
       window.location.reload();
     }
