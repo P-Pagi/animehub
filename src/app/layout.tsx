@@ -6,6 +6,7 @@ import { Footer } from '@/components/footer';
 import { VisitorTracker } from '@/components/visitor-tracker';
 import { NavigationProgressBar } from '@/components/navigation-progress-bar';
 import { NextAuthProvider } from '@/components/next-auth-provider';
+import { ReactQueryProvider } from '@/components/react-query-provider';
 import { TrialBanner } from '@/components/trial-banner';
 import { startBackgroundSync } from '@/lib/cache/scheduler';
 
@@ -59,14 +60,16 @@ export default function RootLayout({
       <body
         className={`${galanoFallback.variable} font-sans bg-brand-dark text-slate-100 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white`}
       >
-        <NextAuthProvider>
-          <NavigationProgressBar />
-          <VisitorTracker />
-          <Navbar />
-          <TrialBanner />
-          <main className="flex-1 pb-16 md:pb-0">{children}</main>
-          <Footer />
-        </NextAuthProvider>
+        <ReactQueryProvider>
+          <NextAuthProvider>
+            <NavigationProgressBar />
+            <VisitorTracker />
+            <Navbar />
+            <TrialBanner />
+            <main className="flex-1 pb-16 md:pb-0">{children}</main>
+            <Footer />
+          </NextAuthProvider>
+        </ReactQueryProvider>
       </body>
     </html>
   );

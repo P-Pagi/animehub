@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
+import { useQuery } from '@tanstack/react-query';
 import { User, LogIn, LogOut, Crown, Clock, Calendar, ShieldCheck, Settings, X } from 'lucide-react';
 import { AuthModal } from './auth-modal';
 
@@ -18,94 +19,54 @@ export function UserProfileButton() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  const { data: dbUserData } = useQuery({
+    queryKey: ['user-me', session?.user?.email],
+    queryFn: async () => {
+      if (!session?.user?.email) return null;
+      const res = await fetch('/api/user/me');
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.success ? json.user : null;
+    },
+    enabled: !!session?.user?.email,
+    staleTime: 60 * 1000,
+  });
+
   useEffect(() => {
     setMounted(true);
+    const savedIsTrial = localStorage.getItem('animehub_is_trial') === 'true';
 
-    const syncFromDB = async (signal?: AbortSignal) => {
-      const savedIsTrial = localStorage.getItem('animehub_is_trial') === 'true';
+    if (dbUserData && session?.user) {
+      const { isPremium: dbPremium, premiumUntil: dbUntil, trialClaimed: dbTrial, ...dbUser } = dbUserData;
+      setUser({ ...session.user, ...dbUser });
+      setIsPremium(dbPremium);
+      setIsTrial(savedIsTrial || Boolean(dbTrial && savedIsTrial !== false));
+      setPremiumUntil(dbUntil || null);
 
-      // If logged in with NextAuth, fetch real-time status from database
-      if (session?.user?.email) {
-        try {
-          const res = await fetch('/api/user/me', {
-            cache: 'no-store',
-            signal,
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success && data.user) {
-              const { isPremium: dbPremium, premiumUntil: dbUntil, trialClaimed: dbTrial, ...dbUser } = data.user;
-
-              setUser({ ...session.user, ...dbUser });
-              setIsPremium(dbPremium);
-              setIsTrial(savedIsTrial || Boolean(dbTrial && savedIsTrial !== false));
-              setPremiumUntil(dbUntil || null);
-
-              // Keep localStorage in sync with database truth
-              if (dbPremium && dbUntil) {
-                localStorage.setItem('animehub_is_premium', 'true');
-                localStorage.setItem('animehub_premium_until', dbUntil);
-              } else if (!dbPremium) {
-                localStorage.removeItem('animehub_is_premium');
-                localStorage.removeItem('animehub_premium_until');
-                localStorage.removeItem('animehub_is_trial');
-              }
-              return;
-            }
-          }
-        } catch (e: any) {
-          if (e?.name === 'AbortError') return; // cancelled, ignore
-        }
+      if (dbPremium && dbUntil) {
+        localStorage.setItem('animehub_is_premium', 'true');
+        localStorage.setItem('animehub_premium_until', dbUntil);
+      } else if (!dbPremium) {
+        localStorage.removeItem('animehub_is_premium');
+        localStorage.removeItem('animehub_premium_until');
+        localStorage.removeItem('animehub_is_trial');
       }
-
-      // Fallback: read from localStorage for non-session users
-      const savedUser = localStorage.getItem('animehub_user');
-      const savedPremium = localStorage.getItem('animehub_is_premium') === 'true';
-      const sessionUser = session?.user as any;
-      const activePremium = savedPremium || sessionUser?.isPremium || false;
-      const savedUntil = localStorage.getItem('animehub_premium_until') || sessionUser?.premiumUntil || null;
-
-      setIsPremium(activePremium);
+    } else {
+      // Fallback local storage state
+      const localPremium = localStorage.getItem('animehub_is_premium') === 'true';
+      const localUntil = localStorage.getItem('animehub_premium_until');
+      setIsPremium(localPremium);
       setIsTrial(savedIsTrial);
-      setPremiumUntil(savedUntil);
-
       if (session?.user) {
         setUser(session.user);
-        return;
+      } else {
+        const savedUser = localStorage.getItem('animehub_user');
+        if (savedUser) {
+          try { setUser(JSON.parse(savedUser)); } catch { }
+        }
       }
-      if (savedUser) {
-        try { setUser(JSON.parse(savedUser)); } catch { }
-      }
-    };
-
-    const controller = new AbortController();
-    syncFromDB(controller.signal);
-
-    // Poll every 60s (not 10s) — browser cache (max-age=60) will absorb most hits
-    const pollInterval = setInterval(() => {
-      // Skip polling if the tab is hidden to save resources
-      if (!document.hidden) {
-        syncFromDB(controller.signal);
-      }
-    }, 60000);
-
-    // Resume polling immediately when tab becomes visible again
-    const onVisibilityChange = () => {
-      if (!document.hidden) syncFromDB(controller.signal);
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    // React to storage events (same-tab upgrades via PremiumModal)
-    const onStorage = () => syncFromDB(controller.signal);
-    window.addEventListener('storage', onStorage);
-
-    return () => {
-      controller.abort();
-      clearInterval(pollInterval);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, [session]);
+    }
+  }, [dbUserData, session]);
 
   // Real-time countdown timer tick
   useEffect(() => {

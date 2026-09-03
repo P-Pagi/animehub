@@ -129,7 +129,7 @@ class CacheService {
    */
   public async set<T>(key: string, data: T, ttlSeconds: number): Promise<void> {
     const now = Date.now();
-    const staleDurationMs = Math.floor(ttlSeconds * 0.8) * 1000;
+    const staleDurationMs = Math.floor(ttlSeconds * 0.95) * 1000; // 95% fresh window
     const expiresDurationMs = 7 * 86400 * 1000; // 7 days persistent fallback window
 
     const staleAt = new Date(now + staleDurationMs);
@@ -216,8 +216,8 @@ class CacheService {
       if (cached.isStale) {
         // Dynamic import to avoid circular dependency
         import('../scraper/sankavollerei/rate-limiter').then(({ sankaRateLimiter }) => {
-          // Only trigger background revalidation if rate limit window has capacity
-          if (sankaRateLimiter.getActiveRequestCount() < sankaRateLimiter.getMaxRequests() - 2) {
+          // Only trigger background revalidation if rate limit window has generous capacity (>5 slots remaining)
+          if (sankaRateLimiter.getActiveRequestCount() < sankaRateLimiter.getMaxRequests() - 5) {
             this.dedupe(key, async () => {
               try {
                 logger.cache(`BACKGROUND REVALIDATION -> ${key}`);

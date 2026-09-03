@@ -17,7 +17,7 @@ export class RateLimiter {
   private activeCount = 0;
   private waitQueue: Array<() => void> = [];
 
-  constructor(maxRequests = 22, windowMs = 60000, maxConcurrent = 4) {
+  constructor(maxRequests = 28, windowMs = 60000, maxConcurrent = 5) {
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
     this.maxConcurrent = maxConcurrent;

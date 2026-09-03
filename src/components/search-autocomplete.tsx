@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Loader2, Star, ChevronRight, X, Film, Tv } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Anime } from '@/types';
 
 interface SearchAutocompleteProps {
@@ -25,58 +26,42 @@ export function SearchAutocomplete({
   inputRef: externalInputRef,
 }: SearchAutocompleteProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Anime[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
 
   const internalInputRef = useRef<HTMLInputElement>(null);
   const actualInputRef = externalInputRef || internalInputRef;
   const containerRef = useRef<HTMLDivElement>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  // Debounced search fetching with AbortController to prevent race conditions
   useEffect(() => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setResults([]);
-      setIsLoading(false);
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const { data: searchData, isLoading } = useQuery({
+    queryKey: ['search', debouncedQuery],
+    queryFn: async () => {
+      if (debouncedQuery.length < 2) return [];
+      const res = await fetch(`/api/anime/search?q=${encodeURIComponent(debouncedQuery)}`);
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.success && Array.isArray(json.data) ? json.data.slice(0, 6) : [];
+    },
+    enabled: debouncedQuery.length >= 2,
+    staleTime: 10 * 60 * 1000, // 10 minutes cache
+  });
+
+  const results: Anime[] = searchData || [];
+
+  useEffect(() => {
+    if (query.trim().length >= 2) {
+      setIsOpen(true);
+    } else {
       setIsOpen(false);
-      return;
     }
-
-    setIsLoading(true);
-    setIsOpen(true);
-
-    const controller = new AbortController();
-
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/anime/search?q=${encodeURIComponent(trimmed)}`, {
-          signal: controller.signal,
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            setResults(json.data.slice(0, 6));
-          } else {
-            setResults([]);
-          }
-        }
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          setResults([]);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false);
-        }
-      }
-    }, 450);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
   }, [query]);
 
   // Click outside listener
@@ -141,7 +126,6 @@ export function SearchAutocomplete({
               type="button"
               onClick={() => {
                 setQuery('');
-                setResults([]);
                 setIsOpen(false);
               }}
               className="text-secondary hover:text-primary p-1 rounded-md"
