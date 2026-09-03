@@ -17,7 +17,7 @@ export class RateLimiter {
   private activeCount = 0;
   private waitQueue: Array<() => void> = [];
 
-  constructor(maxRequests = 28, windowMs = 60000, maxConcurrent = 5) {
+  constructor(maxRequests = 22, windowMs = 60000, maxConcurrent = 4) {
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
     this.maxConcurrent = maxConcurrent;
@@ -80,7 +80,7 @@ declare global {
 }
 
 if (!global.__animehub_rate_limiter) {
-  global.__animehub_rate_limiter = new RateLimiter(28, 60000, 5);
+  global.__animehub_rate_limiter = new RateLimiter(22, 60000, 4);
 }
 
 export const sankaRateLimiter = global.__animehub_rate_limiter;

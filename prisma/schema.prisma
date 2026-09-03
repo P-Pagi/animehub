@@ -72,3 +72,15 @@ model SystemSetting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+model AnimeCache {
+  key       String   @id
+  data      Json
+  staleAt   DateTime
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staleAt])
+  @@index([expiresAt])
+}

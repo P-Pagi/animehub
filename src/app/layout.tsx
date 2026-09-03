@@ -7,6 +7,10 @@ import { VisitorTracker } from '@/components/visitor-tracker';
 import { NavigationProgressBar } from '@/components/navigation-progress-bar';
 import { NextAuthProvider } from '@/components/next-auth-provider';
 import { TrialBanner } from '@/components/trial-banner';
+import { startBackgroundSync } from '@/lib/cache/scheduler';
+
+// Start background worker for data sync & cache warming
+startBackgroundSync();
 
 const galanoFallback = Plus_Jakarta_Sans({
   subsets: ['latin'],
