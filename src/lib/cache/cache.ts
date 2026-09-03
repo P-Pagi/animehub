@@ -214,16 +214,21 @@ class CacheService {
 
     if (cached) {
       if (cached.isStale) {
-        // Background revalidation without blocking client
-        this.dedupe(key, async () => {
-          try {
-            logger.cache(`BACKGROUND REVALIDATION -> ${key}`);
-            const freshData = await fetchFn();
-            await this.set(key, freshData, ttlSeconds);
-          } catch (err: any) {
-            logger.cache(`Background revalidation failed for ${key}`, err?.message);
+        // Dynamic import to avoid circular dependency
+        import('../scraper/sankavollerei/rate-limiter').then(({ sankaRateLimiter }) => {
+          // Only trigger background revalidation if rate limit window has capacity
+          if (sankaRateLimiter.getActiveRequestCount() < sankaRateLimiter.getMaxRequests() - 2) {
+            this.dedupe(key, async () => {
+              try {
+                logger.cache(`BACKGROUND REVALIDATION -> ${key}`);
+                const freshData = await fetchFn();
+                await this.set(key, freshData, ttlSeconds);
+              } catch (err: any) {
+                logger.cache(`Background revalidation failed for ${key}`, err?.message);
+              }
+            });
           }
-        });
+        }).catch(() => {});
       }
       return cached.data;
     }
