@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import { Users, LogIn, Sparkles, X, ArrowRight, Lock, Eye, EyeOff } from 'lucide-react';
 import { AuthModal } from './auth-modal';
 
-export function NobarJoinModal() {
+export function NobarJoinModal({ mobileIconOnly = false }: { mobileIconOnly?: boolean }) {
   const { data: session } = useSession();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -170,11 +170,11 @@ export function NobarJoinModal() {
       {/* Navbar Button Trigger */}
       <button
         onClick={handleOpen}
-        className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black flex items-center gap-1 sm:gap-1.5 active:scale-95 transition-all shrink-0 shadow-sm"
+        className="p-2 sm:px-2.5 sm:py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black flex items-center gap-1 sm:gap-1.5 active:scale-95 transition-all shrink-0 shadow-sm"
         title="Gabung Watch Party Nobar"
       >
         <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-        <span className="text-[11px] sm:text-xs">Nobar</span>
+        {!mobileIconOnly && <span className="text-[11px] sm:text-xs">Nobar</span>}
       </button>
 
       {/* Modal Dialog */}

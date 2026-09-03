@@ -153,7 +153,7 @@ export function Navbar() {
             <RandomAnimeModal variant="pill" />
           </nav>
 
-          {/* Right Action Cluster (Desktop) */}
+          {/* Right Action Cluster (Desktop only) */}
           <div className="hidden md:flex items-center gap-2 xl:gap-3 shrink-0">
             <NobarJoinModal />
             <PremiumModal />
@@ -163,15 +163,14 @@ export function Navbar() {
             </div>
           </div>
 
-          {/* Mobile Right Action Buttons */}
+          {/* Mobile Right — Profile + Nobar icon + Search */}
           <div className="md:hidden flex items-center gap-1.5 shrink-0">
-            <NobarJoinModal />
-            <PremiumModal />
+            <NobarJoinModal mobileIconOnly />
             <UserProfileButton />
             <button
               type="button"
               onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
-              className="p-2 rounded-xl bg-neutral-900/80 border border-neutral-800 text-white hover:text-amber-400 transition-colors flex items-center justify-center text-xs font-semibold backdrop-blur-md shadow-sm shrink-0"
+              className="p-2 rounded-xl bg-neutral-900/80 border border-neutral-800 text-white hover:text-amber-400 transition-colors flex items-center justify-center backdrop-blur-md shadow-sm shrink-0"
               aria-label="Cari anime"
             >
               <Search className="w-4 h-4 text-amber-400" />
@@ -196,9 +195,13 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* ── Fixed Bottom Navigation Bar for Mobile (Mobile First UI) ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0a]/95 border-t border-neutral-800/90 backdrop-blur-2xl px-2 py-1.5 shadow-2xl">
-        <div className="grid grid-cols-5 items-center max-w-md mx-auto">
+      {/* ── Fixed Bottom Navigation Bar for Mobile ── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[999] bg-[#0a0a0a] border-t border-neutral-800 shadow-[0_-8px_30px_rgba(0,0,0,1)]"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 6px)' }}
+      >
+        {/* Main nav tabs */}
+        <div className="grid grid-cols-5 items-center px-1 py-2 max-w-md mx-auto">
           {navLinks.map(({ href, label, icon: Icon, badge }) => {
             const isActive =
               href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -207,25 +210,25 @@ export function Navbar() {
               <Link
                 key={href}
                 href={href}
-                className={`relative flex flex-col items-center justify-center py-1.5 rounded-xl transition-all duration-150 ${
+                className={`relative flex flex-col items-center justify-center py-1 rounded-xl transition-all duration-150 ${
                   isActive
-                    ? 'text-accent font-bold scale-105'
+                    ? 'text-amber-400 font-bold scale-105'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
                 <div className="relative">
-                  <Icon className={`w-5 h-5 transition-transform ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
+                  <Icon className={`w-5 h-5 transition-transform ${isActive ? 'stroke-[2.5] text-amber-400' : 'stroke-2 text-neutral-300'}`} />
                   {badge !== undefined && (
-                    <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 text-[9px] font-black bg-red-600 text-white rounded-full border border-background">
+                    <span className="absolute -top-1.5 -right-2 px-1.5 py-0.2 text-[9px] font-black bg-red-600 text-white rounded-full border border-neutral-900 shadow-sm">
                       {badge}
                     </span>
                   )}
                 </div>
-                <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-black text-white' : 'font-semibold text-neutral-300'}`}>
+                <span className={`text-[10px] mt-1 tracking-tight ${isActive ? 'font-black text-amber-400' : 'font-semibold text-neutral-200'}`}>
                   {label}
                 </span>
                 {isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent mt-0.5 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-0.5 animate-pulse" />
                 )}
               </Link>
             );

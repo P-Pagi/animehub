@@ -123,7 +123,7 @@ export async function sendPaymentReceiptEmail({
                     <tr>
                       <td style="padding-top: 24px; text-align: center;">
                         <span style="color: #71717a; font-size: 12px; display: block;">Butuh bantuan dengan transaksi ini?</span>
-                        <a href="mailto:support@animehub.web.id" style="color: #fbbf24; text-decoration: none; font-size: 12px; font-weight: 600; margin-top: 4px; display: inline-block;">Hubungi Tim Support AnimeHub &rarr;</a>
+                        <a href="mailto:animehub.support@gmail.com" style="color: #fbbf24; text-decoration: none; font-size: 12px; font-weight: 600; margin-top: 4px; display: inline-block;">Hubungi Tim Support AnimeHub &rarr;</a>
                       </td>
                     </tr>
 
@@ -158,7 +158,7 @@ export async function sendPaymentReceiptEmail({
   const data = await resend.emails.send({
     from: emailFrom,
     to,
-    replyTo: 'support@animehub.web.id',
+    replyTo: 'animehub.support@gmail.com',
     subject: `Kuitansi Pembayaran AnimeHub VIP #${trxId}`,
     text: textFallback,
     html: htmlContent,

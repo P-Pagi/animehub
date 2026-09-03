@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { animeService } from '@/lib/services/anime-service';
@@ -45,9 +46,17 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
   try {
     episode = await animeService.getWatchEpisode(slug);
 
-    // Fetch anime detail sequentially (only 1 call at a time, no burst)
-    if (episode.animeSlug) {
-      animeDetail = await animeService.getDetail(episode.animeSlug).catch(() => null);
+    // Parallelise animeDetail + popular — don't block on either
+    const [detailResult, popularResult] = await Promise.allSettled([
+      episode.animeSlug ? animeService.getDetail(episode.animeSlug) : Promise.resolve(null),
+      animeService.getPopular(1),
+    ]);
+
+    if (detailResult.status === 'fulfilled') animeDetail = detailResult.value;
+    if (popularResult.status === 'fulfilled' && popularResult.value?.anime) {
+      recommendations = popularResult.value.anime
+        .filter((a) => a.slug !== episode.animeSlug)
+        .slice(0, 10);
     }
 
     // Dynamic resolution of prev/next episode slugs from animeDetail episode list
@@ -72,17 +81,6 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
         }
       }
     }
-
-    // Skip recommendations fetch — use popular (likely already cached from homepage visit)
-    // to avoid firing extra API requests on every watch page load
-    try {
-      const popularResult = await animeService.getPopular(1).catch(() => null);
-      if (popularResult?.anime) {
-        recommendations = popularResult.anime
-          .filter((a) => a.slug !== episode.animeSlug)
-          .slice(0, 10);
-      }
-    } catch {}
   } catch (err: any) {
     if (err?.status === 404 || err?.code === 'NOT_FOUND') {
       notFound();
@@ -149,14 +147,20 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
         </div>
       )}
 
-      {/* Real-Time Nobar (Watch Together) Feature */}
-      <NobarRoom
-        slug={slug}
-        animeTitle={episode.animeTitle}
-        episodeTitle={episode.title}
-        availableServers={episode.availableServers}
-        embedUrl={episode.embedUrl}
-      />
+      {/* Real-Time Nobar (Watch Together) Feature — wrapped in Suspense because NobarRoom uses useSearchParams() */}
+      <Suspense fallback={
+        <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-4 animate-pulse">
+          <div className="h-4 w-32 rounded bg-neutral-800" />
+        </div>
+      }>
+        <NobarRoom
+          slug={slug}
+          animeTitle={episode.animeTitle}
+          episodeTitle={episode.title}
+          availableServers={episode.availableServers}
+          embedUrl={episode.embedUrl}
+        />
+      </Suspense>
 
       {/* Episode Controls — symmetrical grid layout */}
       <div className="grid grid-cols-2 gap-3 text-xs font-semibold">

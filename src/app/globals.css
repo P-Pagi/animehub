@@ -41,6 +41,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+@media (max-width: 767px) {
+  body {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom));
+  }
+}
+
 /* Minimal Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
