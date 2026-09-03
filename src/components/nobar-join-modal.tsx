@@ -351,7 +351,7 @@ export function NobarJoinModal({ mobileIconOnly = false }: { mobileIconOnly?: bo
                           ))
                         ) : (
                           <div className="col-span-full p-6 text-center text-xs text-neutral-400 bg-neutral-950/60 rounded-2xl border border-neutral-800">
-                            Tidak ditemukan room dengan kata kunci "{roomSearch}".
+                            Tidak ditemukan room dengan kata kunci &quot;{roomSearch}&quot;.
                           </div>
                         )}
                       </div>
@@ -359,7 +359,7 @@ export function NobarJoinModal({ mobileIconOnly = false }: { mobileIconOnly?: bo
                   ) : (
                     <div className="p-5 text-center rounded-2xl bg-neutral-950/60 border border-neutral-800 text-xs text-neutral-400 space-y-1">
                       <p className="font-semibold text-neutral-300">Belum ada Room Publik yang aktif</p>
-                      <p className="text-[11px]">Buka halaman tayang anime lalu klik <strong>"Buat Room Nobar"</strong> untuk memulai nobar pertama!</p>
+                      <p className="text-[11px]">Buka halaman tayang anime lalu klik <strong>&quot;Buat Room Nobar&quot;</strong> untuk memulai nobar pertama!</p>
                     </div>
                   )}
                 </div>
