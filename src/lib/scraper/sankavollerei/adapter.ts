@@ -363,32 +363,26 @@ export class SankaVollereiSource implements AnimeSource {
       });
     }
 
-    // Filter servers strictly according to quality rules:
-    // - Above 480p (720p, 1080p, 4k): STRICTLY Wibufile ONLY
-    // - 480p and lower (360p, 480p): Allow non-Wibufile servers if Wibufile is unavailable
-    const filteredRawServers = rawServers.filter((entry) => {
-      const q = entry.quality.toLowerCase();
-      const isAbove480p = q.includes('720') || q.includes('1080') || q.includes('hd') || q.includes('4k');
-      const isWibu = entry.title.toLowerCase().includes('wibu') || entry.href.toLowerCase().includes('wibu');
-
-      if (isAbove480p) {
-        return isWibu; // Strictly Wibufile ONLY for >480p
-      }
-      return true; // Allow Wibufile + fallback servers for <=480p
-    });
-
-    // Prioritize Wibufile servers first
-    filteredRawServers.sort((a, b) => {
+    // Sort ALL available servers: Prioritize Wibufile first, followed by HD/720p/other servers
+    rawServers.sort((a, b) => {
       const aIsWibu = a.title.toLowerCase().includes('wibu') || a.href.toLowerCase().includes('wibu');
       const bIsWibu = b.title.toLowerCase().includes('wibu') || b.href.toLowerCase().includes('wibu');
       if (aIsWibu && !bIsWibu) return -1;
       if (!aIsWibu && bIsWibu) return 1;
-      return 0;
+
+      // Higher resolutions next
+      const getResScore = (q: string) => {
+        if (q.includes('1080')) return 4;
+        if (q.includes('720') || q.includes('hd')) return 3;
+        if (q.includes('480')) return 2;
+        return 1;
+      };
+      return getResScore(b.quality.toLowerCase()) - getResScore(a.quality.toLowerCase());
     });
 
-    // Resolve server IDs to embed URLs in parallel (max 4 servers)
+    // Resolve server IDs to embed URLs in parallel (max 5 available servers)
     // Each serverId is cached for 24 Hours in Redis/Postgres
-    const toResolve = filteredRawServers.slice(0, 4);
+    const toResolve = rawServers.slice(0, 5);
     const resolvedResults = await Promise.allSettled(
       toResolve.map(async (entry) => {
         // Check cache first — server embed URLs rarely change
