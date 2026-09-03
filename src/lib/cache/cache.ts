@@ -89,7 +89,7 @@ class CacheService {
 
     // Layer 3: Postgres Persistent Cache
     try {
-      const dbEntry = await prisma.animeCache.findUnique({
+      const dbEntry = await (prisma as any).animeCache?.findUnique({
         where: { key },
       });
 
@@ -153,20 +153,22 @@ class CacheService {
 
     // 3. Postgres
     try {
-      await prisma.animeCache.upsert({
-        where: { key },
-        update: {
-          data: data as any,
-          staleAt,
-          expiresAt,
-        },
-        create: {
-          key,
-          data: data as any,
-          staleAt,
-          expiresAt,
-        },
-      });
+      if ((prisma as any).animeCache) {
+        await (prisma as any).animeCache.upsert({
+          where: { key },
+          update: {
+            data: data as any,
+            staleAt,
+            expiresAt,
+          },
+          create: {
+            key,
+            data: data as any,
+            staleAt,
+            expiresAt,
+          },
+        });
+      }
     } catch (err: any) {
       logger.cache(`Postgres UPSERT failed for ${key}`, err?.message);
     }
@@ -177,7 +179,9 @@ class CacheService {
     if (this.redis && this.redis.status === 'ready') {
       this.redis.del(key).catch(() => {});
     }
-    prisma.animeCache.delete({ where: { key } }).catch(() => {});
+    if ((prisma as any).animeCache) {
+      (prisma as any).animeCache.delete({ where: { key } }).catch(() => {});
+    }
   }
 
   /**
@@ -233,7 +237,7 @@ class CacheService {
       } catch (err) {
         // Emergency Fallback: check if Postgres has ANY entry for this key (even expired)
         try {
-          const fallbackDb = await prisma.animeCache.findUnique({ where: { key } });
+          const fallbackDb = await (prisma as any).animeCache?.findUnique({ where: { key } });
           if (fallbackDb?.data) {
             logger.cache(`FALLBACK EXPIRED POSTGRES HIT -> ${key}`);
             return fallbackDb.data as T;

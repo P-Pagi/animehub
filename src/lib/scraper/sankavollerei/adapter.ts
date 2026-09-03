@@ -377,9 +377,9 @@ export class SankaVollereiSource implements AnimeSource {
       });
     }
 
-    // Resolve server IDs to embed URLs in parallel (max 6 to avoid rate limit)
+    // Resolve server IDs to embed URLs in parallel (max 2 to preserve rate limit)
     // Each serverId is individually cached for 10 minutes to prevent repeated API calls
-    const toResolve = rawServers.slice(0, 6);
+    const toResolve = rawServers.slice(0, 2);
     const resolvedResults = await Promise.allSettled(
       toResolve.map(async (entry) => {
         // Check cache first — server embed URLs rarely change
