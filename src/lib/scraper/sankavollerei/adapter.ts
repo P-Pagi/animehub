@@ -271,21 +271,7 @@ export class SankaVollereiSource implements AnimeSource {
   }
 
   public async getDetail(slug: string): Promise<AnimeDetail> {
-    let data: any = null;
-
-    try {
-      data = await fetchSankaApi<any>(`/anime/${slug}`);
-    } catch (err: any) {
-      if (err instanceof AppError && err.statusCode === 404) {
-        const searchTerms = slug.replace(/-/g, ' ');
-        const searchRes = await this.search(searchTerms, 1);
-        if (searchRes.anime.length > 0) {
-          const matchedSlug = searchRes.anime[0].slug;
-          data = await fetchSankaApi<any>(`/anime/${matchedSlug}`);
-        }
-      }
-      if (!data) throw err;
-    }
+    const data: any = await fetchSankaApi<any>(`/anime/${slug}`);
 
     const d = data?.data || data;
     if (!d) throw new AppError('NOT_FOUND', 'Detail anime tidak ditemukan', 404);

@@ -72,16 +72,14 @@ class SourceAdapterRegistry {
   private defaultSourceKey: string;
 
   constructor() {
-    this.defaultSourceKey = 'auto';
+    this.defaultSourceKey = 'sanka';
 
     const sanka = new SankaVollereiSource();
-    const animasu = new AnimasuSource();
-    const fallbackSource = new FallbackAnimeSource(sanka, animasu);
 
-    this.sources.set('auto', fallbackSource);
+    this.sources.set('auto', sanka);
     this.sources.set('sanka', sanka);
-    this.sources.set('animasu', animasu);
-    this.sources.set('animasu_api', fallbackSource);
+    this.sources.set('animasu', sanka);
+    this.sources.set('animasu_api', sanka);
   }
 
   public registerSource(key: string, source: AnimeSource) {
@@ -92,7 +90,7 @@ class SourceAdapterRegistry {
     const targetKey = key || this.defaultSourceKey;
     const source = this.sources.get(targetKey);
     if (!source) {
-      return this.sources.get('auto')!;
+      return this.sources.get('sanka')!;
     }
     return source;
   }
