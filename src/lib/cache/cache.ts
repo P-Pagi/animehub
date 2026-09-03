@@ -94,27 +94,23 @@ class CacheService {
       });
 
       if (dbEntry) {
-        const isStale = now >= dbEntry.staleAt.getTime();
-        const isExpired = now >= dbEntry.expiresAt.getTime();
+        const isStale = true; // Any DB entry returned here can be served immediately as stale fallback
+        logger.cache(`HIT (Postgres Persistent) -> ${key}`);
+        const data = dbEntry.data as T;
 
-        if (!isExpired || isStale) {
-          logger.cache(`HIT (Postgres${isStale ? ' STALE' : ''}) -> ${key}`);
-          const data = dbEntry.data as T;
+        // Backfill Memory
+        this.memoryCache.set(key, {
+          data,
+          staleAt: dbEntry.staleAt.getTime(),
+          expiresAt: dbEntry.expiresAt.getTime(),
+        });
 
-          // Backfill Redis & Memory
-          this.memoryCache.set(key, {
-            data,
-            staleAt: dbEntry.staleAt.getTime(),
-            expiresAt: dbEntry.expiresAt.getTime(),
-          });
-
-          if (this.redis && this.redis.status === 'ready') {
-            const remainingTtlSec = Math.max(10, Math.floor((dbEntry.staleAt.getTime() - now) / 1000));
-            this.redis.setex(key, remainingTtlSec, JSON.stringify(data)).catch(() => {});
-          }
-
-          return { data, isStale };
+        if (this.redis && this.redis.status === 'ready') {
+          const remainingTtlSec = Math.max(10, Math.floor((dbEntry.staleAt.getTime() - now) / 1000));
+          this.redis.setex(key, remainingTtlSec, JSON.stringify(data)).catch(() => {});
         }
+
+        return { data, isStale };
       }
     } catch (err: any) {
       logger.cache(`Postgres GET failed for ${key}`, err?.message);
