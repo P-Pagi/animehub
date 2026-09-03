@@ -154,16 +154,18 @@ class CacheService {
     // 3. Postgres
     try {
       if ((prisma as any).animeCache) {
+        // Ensure data is strictly JSON-serializable for Prisma Json field
+        const safeJson = JSON.parse(JSON.stringify(data));
         await (prisma as any).animeCache.upsert({
           where: { key },
           update: {
-            data: data as any,
+            data: safeJson,
             staleAt,
             expiresAt,
           },
           create: {
             key,
-            data: data as any,
+            data: safeJson,
             staleAt,
             expiresAt,
           },

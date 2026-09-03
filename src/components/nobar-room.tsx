@@ -42,6 +42,7 @@ interface NobarRoomProps {
   slug: string;
   animeTitle: string;
   episodeTitle: string;
+  poster?: string;
   availableServers?: { name: string; url: string }[];
   embedUrl?: string;
 }
@@ -57,7 +58,7 @@ const canResolveNative = (url?: string) => {
   );
 };
 
-export function NobarRoom({ slug, animeTitle, episodeTitle, availableServers = [], embedUrl }: NobarRoomProps) {
+export function NobarRoom({ slug, animeTitle, episodeTitle, poster, availableServers = [], embedUrl }: NobarRoomProps) {
   const { data: session } = useSession();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [authOpen, setAuthOpen] = useState(false);
@@ -429,6 +430,7 @@ export function NobarRoom({ slug, animeTitle, episodeTitle, availableServers = [
             action: 'create',
             slug,
             title: `${animeTitle} - ${episodeTitle}`,
+            poster,
             user: currentUser,
             pin: createPin.trim() || undefined,
           }),

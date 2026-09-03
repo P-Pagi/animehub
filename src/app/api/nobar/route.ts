@@ -22,6 +22,7 @@ interface NobarRoom {
   code: string;
   slug: string;
   title: string;
+  poster?: string;
   pin?: string;
   isPrivate?: boolean;
   users: NobarUser[];
@@ -75,10 +76,44 @@ function checkRateLimit(key: string, maxRequests = 120, windowMs = 60 * 1000): b
   return true;
 }
 
+export async function GET() {
+  try {
+    const activeRooms: any[] = [];
+    const now = Date.now();
+
+    for (const [code, room] of nobarRooms.entries()) {
+      // Show active rooms (last active within 1 hour)
+      if (now - room.lastActive <= 60 * 60 * 1000 && room.users.length > 0) {
+        const hostUser = room.users.find((u) => u.isHost) || room.users[0];
+        activeRooms.push({
+          code: room.code,
+          slug: room.slug,
+          title: room.title,
+          poster: room.poster || null,
+          isPrivate: !!room.pin,
+          participantCount: room.users.length,
+          maxParticipants: 5,
+          users: room.users.map((u) => ({ id: u.id, name: u.name, image: u.image, isHost: u.isHost })),
+          hostName: hostUser?.name || 'User',
+          hostImage: hostUser?.image || null,
+          lastActive: room.lastActive,
+        });
+      }
+    }
+
+    // Sort by most recent activity
+    activeRooms.sort((a, b) => b.lastActive - a.lastActive);
+
+    return NextResponse.json({ success: true, rooms: activeRooms });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, code, slug, title, user } = body;
+    const { action, code, slug, title, poster, user } = body;
 
     if (!user || !user.id || !user.name) {
       return NextResponse.json({ error: 'Wajib login untuk menggunakan fitur Nobar' }, { status: 401 });
@@ -120,6 +155,7 @@ export async function POST(req: NextRequest) {
         code: roomCode,
         slug,
         title,
+        poster,
         pin,
         isPrivate: !!pin,
         users: [{ id: user.id, name: user.name, image: user.image, isHost: true, joinedAt: Date.now() }],

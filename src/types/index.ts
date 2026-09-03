@@ -49,6 +49,7 @@ export interface EpisodeDetail {
   episodeNumber: number;
   title: string;
   thumbnail?: string;
+  poster?: string;
   embedUrl?: string;
   availableServers?: { name: string; url: string }[];
   downloadOptions?: DownloadQuality[];

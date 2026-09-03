@@ -167,6 +167,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
           slug={slug}
           animeTitle={episode.animeTitle}
           episodeTitle={episode.title}
+          poster={episode.poster || episode.thumbnail}
           availableServers={episode.availableServers}
           embedUrl={episode.embedUrl}
         />
