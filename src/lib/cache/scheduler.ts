@@ -16,7 +16,7 @@ export function startBackgroundSync() {
 
   logger.cache('[BackgroundSync] Initializing background sync scheduler...');
 
-  // 1. Initial warm up after 2s
+  // 1. Initial warm up after 15s (gives priority to immediate incoming user requests on startup)
   setTimeout(async () => {
     await runSyncTask('Initial Warmup', async (service) => {
       await service.getLatest(1);

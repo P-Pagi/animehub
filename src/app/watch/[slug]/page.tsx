@@ -43,7 +43,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
   try {
     episode = await animeService.getWatchEpisode(slug);
 
-    // Parallelise animeDetail + popular — don't block on either
+    // Parallelise animeDetail + popular (both cached)
     const [detailResult, popularResult] = await Promise.allSettled([
       episode.animeSlug ? animeService.getDetail(episode.animeSlug) : Promise.resolve(null),
       animeService.getPopular(1),
