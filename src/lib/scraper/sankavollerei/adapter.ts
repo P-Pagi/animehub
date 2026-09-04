@@ -378,14 +378,14 @@ export class SankaVollereiSource implements AnimeSource {
       if (aIsWibu && !bIsWibu) return -1;
       if (!aIsWibu && bIsWibu) return 1;
 
-      // Higher resolutions next
+      // Resolution order: lower resolutions first (480p -> 720p -> 1080p) to save user bandwidth
       const getResScore = (q: string) => {
-        if (q.includes('1080')) return 4;
-        if (q.includes('720') || q.includes('hd')) return 3;
-        if (q.includes('480')) return 2;
-        return 1;
+        if (q.includes('480') || q.includes('sd')) return 1;
+        if (q.includes('720') || q.includes('hd')) return 2;
+        if (q.includes('1080') || q.includes('fhd')) return 3;
+        return 4;
       };
-      return getResScore(b.quality.toLowerCase()) - getResScore(a.quality.toLowerCase());
+      return getResScore(a.quality.toLowerCase()) - getResScore(b.quality.toLowerCase());
     });
 
     // Resolve server IDs to embed URLs in parallel (capped to top 3 available servers to prevent request spikes)
