@@ -4,6 +4,7 @@
  * respecting the 22 req/min rate limit without any user request delay.
  */
 import { logger } from '@/lib/utils/logger';
+import { RequestPriority } from '@/lib/scraper/sankavollerei/rate-limiter';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -16,43 +17,41 @@ export function startBackgroundSync() {
 
   logger.cache('[BackgroundSync] Initializing background sync scheduler...');
 
-  // 1. Initial warm up after 15s (gives priority to immediate incoming user requests on startup)
+  // 1. Initial warm up after 5s (gives priority to immediate incoming user requests on startup)
   setTimeout(async () => {
     await runSyncTask('Initial Warmup', async (service) => {
-      await service.getLatest(1);
-      await new Promise((r) => setTimeout(r, 1500));
-      await service.getPopular(1);
-      await new Promise((r) => setTimeout(r, 1500));
-      await service.getOnAir();
-      await new Promise((r) => setTimeout(r, 1500));
-      await service.getMovies(1);
-      await new Promise((r) => setTimeout(r, 1500));
-      await service.getSchedule();
+      await service.getLatest(1, RequestPriority.LOW);
+      await new Promise((r) => setTimeout(r, 2000));
+      await service.getOnAir(RequestPriority.LOW);
+      await new Promise((r) => setTimeout(r, 2000));
+      await service.getMovies(1, RequestPriority.LOW);
+      await new Promise((r) => setTimeout(r, 2000));
+      await service.getSchedule(RequestPriority.LOW);
     });
-  }, 2000);
+  }, 5000);
 
   // 2. Periodic sync for Latest & OnAir (every 10 minutes)
   setInterval(async () => {
     await runSyncTask('Latest & OnAir Sync', async (service) => {
-      await service.getLatest(1);
+      await service.getLatest(1, RequestPriority.LOW);
       await new Promise((r) => setTimeout(r, 2000));
-      await service.getOnAir();
+      await service.getOnAir(RequestPriority.LOW);
     });
   }, 10 * 60 * 1000);
 
   // 3. Periodic sync for Popular & Movies (every 30 minutes)
   setInterval(async () => {
     await runSyncTask('Popular & Movies Sync', async (service) => {
-      await service.getPopular(1);
+      await service.getPopular(1, RequestPriority.LOW);
       await new Promise((r) => setTimeout(r, 2000));
-      await service.getMovies(1);
+      await service.getMovies(1, RequestPriority.LOW);
     });
   }, 30 * 60 * 1000);
 
   // 4. Periodic sync for Schedule (every 4 hours)
   setInterval(async () => {
     await runSyncTask('Schedule Sync', async (service) => {
-      await service.getSchedule();
+      await service.getSchedule(RequestPriority.LOW);
     });
   }, 4 * 60 * 60 * 1000);
 }

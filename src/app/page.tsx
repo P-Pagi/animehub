@@ -26,21 +26,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   let errorMsg: string | null = null;
 
   try {
-    // Sequential fetching: prevents simultaneous burst to Samehadaku API (max 30 req/min)
-    // Cache handles 30-min stale-while-revalidate, so only 1 real API call fires per cache miss
-    const latestRes  = await animeService.getLatest(page).catch(() => null);
-    const popularRes = await animeService.getPopular(1).catch(() => null);
-    const onAirRes   = await animeService.getOnAir().catch(() => null);
-    const moviesRes  = await animeService.getMovies(1).catch(() => null);
+    // Staggered fetching to prevent burst rate-limiting to Samehadaku API
+    const latestRes = await animeService.getLatest(page).catch(() => null);
+    const onAirRes  = await animeService.getOnAir().catch(() => null);
+    const moviesRes = await animeService.getMovies(1).catch(() => null);
 
-    if (latestRes)  latestAnimeList  = latestRes.anime;
-    if (popularRes) popularAnimeList = popularRes.anime;
-    if (onAirRes)   onAirAnimeList   = onAirRes.anime;
-    if (moviesRes)  moviesAnimeList  = moviesRes.anime;
+    if (latestRes)  latestAnimeList = latestRes.anime;
+    if (onAirRes)   onAirAnimeList  = onAirRes.anime;
+    if (moviesRes)  moviesAnimeList = moviesRes.anime;
 
     if (
       latestAnimeList.length === 0 &&
-      popularAnimeList.length === 0 &&
       onAirAnimeList.length === 0 &&
       moviesAnimeList.length === 0
     ) {
@@ -50,10 +46,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     errorMsg = err instanceof Error ? err.message : 'Gagal memuat daftar anime.';
   }
 
-  // Carousel Items: Combine top items into a 6-item Hero Banner
+  // Carousel Items: Combine top items from onAir and latest for Hero Banner (No extra API call required)
   const featuredItems = [
     ...onAirAnimeList.slice(0, 3),
-    ...popularAnimeList.slice(0, 3),
     ...latestAnimeList.slice(0, 3),
   ].filter(
     (item, index, self) => index === self.findIndex((t) => t.slug === item.slug)

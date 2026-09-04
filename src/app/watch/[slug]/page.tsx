@@ -43,17 +43,18 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
   try {
     episode = await animeService.getWatchEpisode(slug);
 
-    // Parallelise animeDetail + popular (both cached)
-    const [detailResult, popularResult] = await Promise.allSettled([
-      episode.animeSlug ? animeService.getDetail(episode.animeSlug) : Promise.resolve(null),
-      animeService.getPopular(1),
-    ]);
+    // Smart prefetch next episode in background (non-blocking)
+    if (episode.nextEpisodeSlug) {
+      animeService.prefetchEpisode(episode.nextEpisodeSlug);
+    }
 
-    if (detailResult.status === 'fulfilled') animeDetail = detailResult.value;
-    if (popularResult.status === 'fulfilled' && popularResult.value?.anime) {
-      recommendations = popularResult.value.anime
-        .filter((a) => a.slug !== episode.animeSlug)
-        .slice(0, 10);
+    // Only fetch animeDetail if prev/next episode slugs aren't provided by the episode scraper response
+    if (episode.animeSlug && (!episode.prevEpisodeSlug || !episode.nextEpisodeSlug)) {
+      try {
+        animeDetail = await animeService.getDetail(episode.animeSlug);
+      } catch {
+        // Fallback gracefully if detail fails
+      }
     }
 
     // Dynamic resolution of prev/next episode slugs from animeDetail episode list

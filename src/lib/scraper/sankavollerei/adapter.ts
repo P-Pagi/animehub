@@ -4,7 +4,7 @@ import { AnimeDetail, EpisodeDetail, DaySchedule, Anime, Episode, DownloadQualit
 import { AppError } from '@/lib/utils/errors';
 import { logger } from '@/lib/utils/logger';
 import https from 'https';
-import { sankaRateLimiter } from './rate-limiter';
+import { sankaRateLimiter, RequestPriority } from './rate-limiter';
 import { circuitBreaker } from './circuit-breaker';
 import { cache } from '@/lib/cache/cache';
 
@@ -21,17 +21,23 @@ const USER_AGENTS = [
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
 ];
 
-async function fetchSankaApi<T>(endpoint: string, retries = 1): Promise<T> {
+async function fetchSankaApi<T>(
+  endpoint: string,
+  retries = 2,
+  priority: RequestPriority = RequestPriority.HIGH
+): Promise<T> {
   // Circuit breaker check — if tripped by a recent 429, bail immediately (no request sent)
   if (circuitBreaker.isOpen()) {
     throw new AppError('RATE_LIMITED', 'API sedang diistirahatkan (circuit open). Data dari cache.', 429);
   }
 
-  await sankaRateLimiter.acquireToken();
+  await sankaRateLimiter.acquireToken(priority);
 
   const url = `${API_BASE}${endpoint}`;
   const randomUserAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-  logger.scraper(`[SankaSamehadakuAPI] Requesting: ${url}`);
+  logger.scraper(
+    `[SankaSamehadakuAPI] Requesting (${priority === RequestPriority.HIGH ? 'HIGH' : priority === RequestPriority.NORMAL ? 'NORMAL' : 'LOW'}): ${url}`
+  );
 
   try {
     const response = await axios.get(url, {
@@ -40,16 +46,23 @@ async function fetchSankaApi<T>(endpoint: string, retries = 1): Promise<T> {
       headers: {
         'User-Agent': randomUserAgent,
         Accept: 'application/json, text/plain, */*',
-        'Connection': 'close',
+        Connection: 'close',
       },
     });
 
     if (
       response.data?.message &&
-      typeof response.data.message === 'string' &&
-      response.data.message.includes('Error fetching')
+      typeof response.data.message === 'string'
     ) {
-      throw new AppError('NOT_FOUND', `Item not found on Samehadaku API (${endpoint})`, 404);
+      const msg = response.data.message.toLowerCase();
+      if (msg.includes('error fetching')) {
+        throw new AppError('NOT_FOUND', `Item not found on Samehadaku API (${endpoint})`, 404);
+      }
+      if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('limit reached')) {
+        logger.scraper(`[CircuitBreaker] TRIP TRIGGERED via 200 OK payload: ${response.data.message}`);
+        circuitBreaker.trip();
+        throw new AppError('RATE_LIMITED', 'API sedang diistirahatkan (circuit open). Data dari cache.', 429);
+      }
     }
 
     if (!response.data || response.data.status !== 'success') {
@@ -75,37 +88,32 @@ async function fetchSankaApi<T>(endpoint: string, retries = 1): Promise<T> {
         }
       }
 
-      // 429 or 403: TRIP the circuit breaker immediately, NO retry
-      // Retrying 429s is the root cause of the request storm
-      if (err.response?.status === 429 || err.response?.status === 403) {
+      // 429 or 403 or Rate Limit response message: TRIP the circuit breaker immediately, NO retry
+      const status = err.response?.status;
+      const respData = err.response?.data;
+      const isRateLimitedMsg =
+        respData?.message &&
+        typeof respData.message === 'string' &&
+        (respData.message.toLowerCase().includes('rate limit') || respData.message.toLowerCase().includes('too many requests'));
+
+      if (status === 429 || status === 403 || isRateLimitedMsg) {
+        logger.scraper(`[CircuitBreaker] TRIP TRIGGERED -> Status: ${status || '200 (msg rate limit)'}, Payload: ${JSON.stringify(respData || err.message)}`);
         circuitBreaker.trip();
         throw new AppError('RATE_LIMITED', 'API sedang diistirahatkan (circuit open). Data dari cache.', 429);
       }
 
-      // ECONNRESET: retry once quickly (socket drop, not rate limit)
-      if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') {
-        if (retries > 0) {
-          logger.scraper(`[SankaSamehadakuAPI] Socket reset. Reconnecting... (${retries} left)`);
-          await new Promise((r) => setTimeout(r, 300));
-          return fetchSankaApi<T>(endpoint, retries - 1);
-        }
-      }
-
-      // Timeout: retry once
-      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
-        if (retries > 0) {
-          logger.scraper(`[SankaSamehadakuAPI] Timeout. Retrying... (${retries} left)`);
-          await new Promise((r) => setTimeout(r, 500));
-          return fetchSankaApi<T>(endpoint, retries - 1);
-        }
-        throw new AppError('TIMEOUT', 'Samehadaku API request timed out.', 504);
+      // Retryable errors with Exponential Backoff
+      if (retries > 0 && (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED' || err.code === 'ECONNABORTED' || (status && status >= 500))) {
+        const backoffMs = (3 - retries) * 400 + Math.floor(Math.random() * 200);
+        logger.scraper(`[SankaSamehadakuAPI] Retrying ${endpoint} after ${backoffMs}ms... (${retries} retries left)`);
+        await new Promise((r) => setTimeout(r, backoffMs));
+        return fetchSankaApi<T>(endpoint, retries - 1, priority);
       }
     }
 
     logger.error('SCRAPER', `Samehadaku API error on ${url}`, err);
     throw new AppError('SOURCE_UNAVAILABLE', 'Unable to reach Samehadaku API server', 503);
   } finally {
-    // Always release the concurrent slot so the semaphore doesn't fill up
     sankaRateLimiter.releaseToken();
   }
 }
@@ -164,8 +172,8 @@ export class SankaVollereiSource implements AnimeSource {
   public readonly name = 'SankaVollerei';
   public readonly baseUrl: string = API_BASE;
 
-  public async getLatest(page: number = 1): Promise<ScrapeListResult> {
-    const data = await fetchSankaApi<any>(`/recent?page=${page}`);
+  public async getLatest(page: number = 1, priority: RequestPriority = RequestPriority.HIGH): Promise<ScrapeListResult> {
+    const data = await fetchSankaApi<any>(`/recent?page=${page}`, 2, priority);
     const items = data.data?.animeList || data.data?.recent?.animeList || [];
     const anime = dedupeAnime(items.map(mapAnimeCard));
     return {
@@ -174,8 +182,8 @@ export class SankaVollereiSource implements AnimeSource {
     };
   }
 
-  public async getPopular(page: number = 1): Promise<ScrapeListResult> {
-    const data = await fetchSankaApi<any>(`/popular?page=${page}`);
+  public async getPopular(page: number = 1, priority: RequestPriority = RequestPriority.HIGH): Promise<ScrapeListResult> {
+    const data = await fetchSankaApi<any>(`/popular?page=${page}`, 2, priority);
     const items = data.data?.animeList || [];
     const anime = dedupeAnime(items.map(mapAnimeCard));
     return {
@@ -184,8 +192,8 @@ export class SankaVollereiSource implements AnimeSource {
     };
   }
 
-  public async getOnAir(): Promise<ScrapeListResult> {
-    const data = await fetchSankaApi<any>(`/ongoing?page=1`);
+  public async getOnAir(priority: RequestPriority = RequestPriority.HIGH): Promise<ScrapeListResult> {
+    const data = await fetchSankaApi<any>(`/ongoing?page=1`, 2, priority);
     const items = data.data?.animeList || [];
     const anime = dedupeAnime(items.map(mapAnimeCard));
     return {
@@ -194,8 +202,8 @@ export class SankaVollereiSource implements AnimeSource {
     };
   }
 
-  public async getMovies(page: number = 1): Promise<ScrapeListResult> {
-    const data = await fetchSankaApi<any>(`/movies?page=${page}`);
+  public async getMovies(page: number = 1, priority: RequestPriority = RequestPriority.HIGH): Promise<ScrapeListResult> {
+    const data = await fetchSankaApi<any>(`/movies?page=${page}`, 2, priority);
     const items = data.data?.animeList || [];
     const anime = dedupeAnime(items.map(mapAnimeCard));
     return {
@@ -204,15 +212,15 @@ export class SankaVollereiSource implements AnimeSource {
     };
   }
 
-  public async getGenre(slug: string, page: number = 1): Promise<ScrapeListResult> {
+  public async getGenre(slug: string, page: number = 1, priority: RequestPriority = RequestPriority.HIGH): Promise<ScrapeListResult> {
     try {
       const lowerSlug = slug.toLowerCase().trim();
 
       if (lowerSlug === 'movie' || lowerSlug === 'movies') {
-        return this.getMovies(page);
+        return this.getMovies(page, priority);
       }
       if (lowerSlug === 'donghua') {
-        return this.search('donghua', page);
+        return this.search('donghua', page, priority);
       }
 
       const GENRE_SLUG_MAP: Record<string, string> = {
@@ -236,7 +244,7 @@ export class SankaVollereiSource implements AnimeSource {
       };
 
       const targetSlug = GENRE_SLUG_MAP[lowerSlug] || lowerSlug;
-      const data = await fetchSankaApi<any>(`/genres/${targetSlug}?page=${page}`);
+      const data = await fetchSankaApi<any>(`/genres/${targetSlug}?page=${page}`, 2, priority);
       const items = data.data?.animeList || [];
       const anime = dedupeAnime(items.map(mapAnimeCard));
       return {
@@ -251,11 +259,11 @@ export class SankaVollereiSource implements AnimeSource {
     }
   }
 
-  public async search(query: string, page: number = 1): Promise<ScrapeListResult> {
+  public async search(query: string, page: number = 1, priority: RequestPriority = RequestPriority.HIGH): Promise<ScrapeListResult> {
     if (!query.trim()) return { anime: [], hasNextPage: false };
     try {
       const encoded = encodeURIComponent(query.trim());
-      const data = await fetchSankaApi<any>(`/search?q=${encoded}&page=${page}`);
+      const data = await fetchSankaApi<any>(`/search?q=${encoded}&page=${page}`, 2, priority);
       const items = data.data?.animeList || [];
       const anime = dedupeAnime(items.map(mapAnimeCard));
       return {
@@ -270,8 +278,8 @@ export class SankaVollereiSource implements AnimeSource {
     }
   }
 
-  public async getDetail(slug: string): Promise<AnimeDetail> {
-    const data: any = await fetchSankaApi<any>(`/anime/${slug}`);
+  public async getDetail(slug: string, priority: RequestPriority = RequestPriority.HIGH): Promise<AnimeDetail> {
+    const data: any = await fetchSankaApi<any>(`/anime/${slug}`, 2, priority);
 
     const d = data?.data || data;
     if (!d) throw new AppError('NOT_FOUND', 'Detail anime tidak ditemukan', 404);
@@ -329,8 +337,8 @@ export class SankaVollereiSource implements AnimeSource {
     };
   }
 
-  public async getEpisode(slug: string): Promise<EpisodeDetail> {
-    const data = await fetchSankaApi<any>(`/episode/${slug}`);
+  public async getEpisode(slug: string, priority: RequestPriority = RequestPriority.HIGH): Promise<EpisodeDetail> {
+    const data = await fetchSankaApi<any>(`/episode/${slug}`, 2, priority);
     const d = data?.data || data;
 
     if (!d) throw new AppError('NOT_FOUND', 'Episode tidak ditemukan', 404);
@@ -380,9 +388,9 @@ export class SankaVollereiSource implements AnimeSource {
       return getResScore(b.quality.toLowerCase()) - getResScore(a.quality.toLowerCase());
     });
 
-    // Resolve server IDs to embed URLs in parallel (max 5 available servers)
-    // Each serverId is cached for 24 Hours in Redis/Postgres
-    const toResolve = rawServers.slice(0, 5);
+    // Resolve server IDs to embed URLs in parallel (capped to top 3 available servers to prevent request spikes)
+    // Each serverId is cached for 30 Days in Redis/Postgres
+    const toResolve = rawServers.slice(0, 3);
     const resolvedResults = await Promise.allSettled(
       toResolve.map(async (entry) => {
         // Check cache first — server embed URLs rarely change
@@ -391,11 +399,11 @@ export class SankaVollereiSource implements AnimeSource {
         if (cached) {
           return { entry, url: cached };
         }
-        // Cache miss: resolve via API (this token counts against rate limiter)
-        const res = await fetchSankaApi<any>(`/server/${entry.serverId}`);
+        // Cache miss: resolve via API
+        const res = await fetchSankaApi<any>(`/server/${entry.serverId}`, 2, priority);
         const url: string = res?.data?.url || res?.url || '';
         if (url) {
-          await cache.set(cacheKey, url, 86400); // Cache embed URLs for 24 Hours
+          await cache.set(cacheKey, url, 30 * 86400); // Cache embed URLs for 30 Days
         }
         return { entry, url };
       })
@@ -424,8 +432,6 @@ export class SankaVollereiSource implements AnimeSource {
       if (!aIsWibu && bIsWibu) return 1;
       return 0;
     });
-
-    // Blogspot fallback disabled as per user requirement
 
     const downloadOptions: DownloadQuality[] = [];
     const rawDl = d.downloadUrl || d.download_url;
@@ -476,8 +482,8 @@ export class SankaVollereiSource implements AnimeSource {
     };
   }
 
-  public async getSchedule(): Promise<DaySchedule[]> {
-    const data = await fetchSankaApi<any>(`/schedule`);
+  public async getSchedule(priority: RequestPriority = RequestPriority.HIGH): Promise<DaySchedule[]> {
+    const data = await fetchSankaApi<any>(`/schedule`, 2, priority);
     const daysArr = data.data?.days || [];
 
     const dayNameMap: Record<string, string> = {

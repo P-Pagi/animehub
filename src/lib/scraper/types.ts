@@ -1,4 +1,5 @@
 import { Anime, AnimeDetail, EpisodeDetail, DaySchedule } from '@/types';
+import { RequestPriority } from './sankavollerei/rate-limiter';
 
 export interface ScrapeListResult {
   anime: Anime[];
@@ -9,13 +10,13 @@ export interface AnimeSource {
   name: string;
   baseUrl: string;
 
-  getLatest(page?: number): Promise<ScrapeListResult>;
-  getPopular(page?: number): Promise<ScrapeListResult>;
-  getOnAir(): Promise<ScrapeListResult>;
-  getGenre(slug: string, page?: number): Promise<ScrapeListResult>;
-  search(query: string, page?: number): Promise<ScrapeListResult>;
-  getDetail(slug: string): Promise<AnimeDetail>;
-  getEpisode(slug: string): Promise<EpisodeDetail>;
-  getSchedule(): Promise<DaySchedule[]>;
-  getMovies(page?: number): Promise<ScrapeListResult>;
+  getLatest(page?: number, priority?: RequestPriority): Promise<ScrapeListResult>;
+  getPopular(page?: number, priority?: RequestPriority): Promise<ScrapeListResult>;
+  getOnAir(priority?: RequestPriority): Promise<ScrapeListResult>;
+  getGenre(slug: string, page?: number, priority?: RequestPriority): Promise<ScrapeListResult>;
+  search(query: string, page?: number, priority?: RequestPriority): Promise<ScrapeListResult>;
+  getDetail(slug: string, priority?: RequestPriority): Promise<AnimeDetail>;
+  getEpisode(slug: string, priority?: RequestPriority): Promise<EpisodeDetail>;
+  getSchedule(priority?: RequestPriority): Promise<DaySchedule[]>;
+  getMovies(page?: number, priority?: RequestPriority): Promise<ScrapeListResult>;
 }
